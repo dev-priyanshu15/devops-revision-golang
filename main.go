@@ -1,22 +1,36 @@
 package main
 
 import (
-    "fmt"
-    "net/http"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
-func homePage(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Welcome to the DevOps Bootcamp!")
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Status: Active")
+	fmt.Fprintln(w, "User: Priyanshu")
 }
 
-func healthCheck(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Status: Active\nUser: Priyanshu")
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Welcome to the DevOps Bootcamp!")
 }
 
 func main() {
-    http.HandleFunc("/", homePage)
-    http.HandleFunc("/health", healthCheck)
+	// 1. .env file load karo
+	godotenv.Load()
 
-    fmt.Println("Server is starting on port 8080...")
-    http.ListenAndServe("0.0.0.0:8080", nil)
+	// 2. PORT variable uthao
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Agar .env nahi mili to backup
+	}
+
+	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/health", healthHandler)
+
+	log.Printf("Server starting on port %s...", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
