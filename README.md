@@ -9,7 +9,8 @@ This repository documents a practical journey through core DevOps concepts using
 2. [Day 2: Dockerization (Containerization)](#-day-2-dockerization-containerization)
 3. [Day 3: CI/CD Automation (GitHub Actions)](#-day-3-cicd-automation-github-actions)
 4. [Day 4: Kubernetes Orchestration (K8s)](#-day-4-kubernetes-orchestration-k8s)
-5. [How to Run Locally](#%EF%B8%8F-how-to-run-locally)
+5. [Day 5: Networking & Configuration (Pro Setup)](#-day-5-networking--configuration-pro-setup)
+6. [How to Run Locally](#%EF%B8%8F-how-to-run-locally)
 
 ---
 
@@ -86,34 +87,76 @@ jobs:
 
 ### 2. 🚀 Step-by-Step Execution Log
 
-Here is the breakdown of the commands we ran and the logic behind them:
-
-#### Phase 1: Setup (Setting up the Playground)
 | Step | Command | Logic (Why?) |
 | :--- | :--- | :--- |
-| **1. Enable K8s** | Docker Desktop > Settings > Enable | Minikube had issues, so we used Docker Desktop's built-in K8s for a smoother experience. |
-| **2. Switch Context** | `kubectl config use-context docker-desktop` | **Correction:** `kubectl` was targeting AWS Cloud. We forced it to talk to the **Local Cluster**. |
-| **3. Verify** | `kubectl get nodes` | To confirm the "Master Node" is ready to receive orders. |
+| **1. Setup** | `kubectl config use-context docker-desktop` | Switched context to Local K8s (Docker Desktop). |
+| **2. Verify** | `kubectl get nodes` | Confirmed the Cluster is Ready. |
+| **3. Pod** | `kubectl run my-first-pod --image=nginx` | **Hello World:** Created a standalone pod to test K8s. |
+| **4. Access** | `kubectl port-forward pod/my-first-pod 8080:80` | **Tunnel:** Accessed isolated pod via localhost. |
+| **5. Deploy** | `kubectl create deployment my-web --image=nginx` | **Manager:** Created Deployment for Auto-Healing. |
+| **6. Heal** | `kubectl delete pod <pod-name>` | **Test:** Killed pod manually. **Result:** New one created instantly. |
+| **7. Scale** | `kubectl scale deployment my-web --replicas=3` | **Viral Mode:** Increased capacity from 1 to 3 servers. |
+| **8. Clean** | `kubectl delete deployment my-web` | Removed resources to save memory. |
 
-#### Phase 2: Pod Phase (The Freelancer - Manual Work)
+---
+
+## 🗓️ Day 5: Networking & Configuration (Pro Setup)
+**Goal:** Deploy the **Real Golang App**, expose it to the world, and manage settings securely.
+
+### 1. The Concepts
+- **ConfigMap:** A separate "Diary" for settings (like `PORT`). Decouples config from code.
+- **Service (LoadBalancer):** The "Receptionist". Gives a stable IP/Port to access the App, even if Pods die/restart.
+
+### 2. The Infrastructure Code (k8s-final.yaml)
+We used a single YAML file to define our entire infrastructure.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-go-app
+  template:
+    metadata:
+      labels:
+        app: my-go-app
+    spec:
+      containers:
+      - name: go-container
+        image: my-go-app:v1      # Uses our local Go image
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        envFrom:                 # Links to ConfigMap
+        - configMapRef:
+            name: my-go-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: golang-service
+spec:
+  type: LoadBalancer             # Exposes App to localhost
+  selector:
+    app: my-go-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+```
+
+### 3. 🚀 Step-by-Step Execution Log
+
 | Step | Command | Logic (Why?) |
 | :--- | :--- | :--- |
-| **4. Create Pod** | `kubectl run my-first-pod --image=nginx` | **Hello World:** Created a standalone pod just to test if a container runs in K8s. |
-| **5. Access App** | `kubectl port-forward pod/my-first-pod 8080:80` | **The Tunnel:** K8s is isolated (Locked Room). We opened a tunnel to view the site on localhost. |
-| **6. Delete Pod** | `kubectl delete pod my-first-pod` | **Reliability Test:** We deleted the pod to see if it comes back. **Result:** It did not (No Auto-healing). |
-
-#### Phase 3: Deployment Phase (The Manager - Production Work)
-| Step | Command | Logic (Why?) |
-| :--- | :--- | :--- |
-| **7. Deploy** | `kubectl create deployment my-web --image=nginx` | **Hiring a Manager:** We stopped creating Pods manually. Now the Deployment manages them. |
-| **8. Check List** | `kubectl get all` | To verify that the Manager (Deployment), Assistant (ReplicaSet), and Worker (Pod) are all active. |
-| **9. Auto-Heal** | `kubectl delete pod <pod-name>` | **Murder Mystery:** Intentionally killed a pod. **Result:** Manager immediately created a new one (System stayed UP). |
-| **10. Scaling** | `kubectl scale deployment my-web --replicas=3` | **Viral Mode:** Increased capacity from 1 to 3 servers with a single command to distribute load. |
-
-#### Phase 4: Cleanup
-| Step | Command | Logic (Why?) |
-| :--- | :--- | :--- |
-| **11. Delete All** | `kubectl delete deployment my-web` | Removed all resources to free up system RAM/CPU. |
+| **1. Build Image** | `docker build -t my-go-app:v1 .` | **Packaging:** K8s needs an image. We packaged our *actual* Go code. |
+| **2. ConfigMap** | `kubectl create configmap my-go-config --from-literal=PORT=8080` | **Settings:** Saved `PORT=8080` in K8s so the app knows where to run. |
+| **3. Apply** | `kubectl apply -f k8s-final.yaml` | **Execution:** Deployed both App and Network using the YAML file above. |
+| **4. Verify** | `kubectl get all` | **Check:** Confirmed Pods are `Running` and Service has an IP. |
+| **5. Access** | Browser -> `http://localhost/health` | **Final Test:** Accessed the Go App directly via browser (No port-forward needed!). |
 
 ---
 
@@ -131,15 +174,18 @@ docker run -d -p 9090:8080 go-app-final
 # Access at http://localhost:9090/health
 ```
 
-### Option 3: Using Kubernetes (K8s)
+### Option 3: Using Kubernetes (The Professional Way) 🏆
 ```bash
-# Create Deployment
-kubectl create deployment go-app --image=nginx
+# 1. Build Image
+docker build -t my-go-app:v1 .
 
-# Access using Port Forward
-kubectl port-forward deployment/go-app 8080:80
+# 2. Apply Infrastructure
+kubectl apply -f k8s-final.yaml
+
+# 3. Access App
+# Open Browser: http://localhost/health
 ```
 
 ---
-**Current Status:** Day 4 Completed ✅
-**Next Up:** Day 5 - Networking (Services & LoadBalancers)
+**Current Status:** Day 5 Completed ✅
+**Next Up:** Day 6 - Database Integration (MongoDB)
